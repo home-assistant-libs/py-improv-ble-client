@@ -122,11 +122,11 @@ class ImprovBLEClient:
         self._client: BleakClient | None = None
         self._notification_handlers = NotificationHandler()
         self._response_handlers: dict[int, asyncio.Future[prot.Command]] = {}
-        self._connect_lock: asyncio.Lock = asyncio.Lock()
+        self._connect_lock = asyncio.Lock()
         self._disconnect_reason: DisconnectReason | None = None
         self._disconnect_timer: asyncio.TimerHandle | None = None
-        self._expected_disconnect: bool = False
-        self._procedure_lock: asyncio.Lock = asyncio.Lock()
+        self._expected_disconnect = False
+        self._procedure_lock = asyncio.Lock()
         self.loop = asyncio.get_running_loop()
 
     def set_ble_device_and_advertisement_data(
