@@ -56,7 +56,6 @@ def device_filter(advertisement_data: AdvertisementData) -> bool:
     """Return True if the device is supported."""
     uuids = advertisement_data.service_uuids
     if SERVICE_UUID in uuids:
-        _LOGGER.error("Found device with service %s. ", SERVICE_UUID)
         return True
     return False
 
@@ -432,15 +431,14 @@ class ImprovBLEClient:
         self, characteristic: BleakGATTCharacteristic, data: bytes
     ) -> None:
         """Notification handler."""
-        _LOGGER.debug("RX: %s", data.hex())
         self._reset_disconnect_timer()
         try:
             command = parse_result(data)
         except InvalidCommand as err:
-            _LOGGER.warning("Received invalid command %s", err)
+            _LOGGER.warning("Received invalid command %s (%s)", err, data.hex())
             self._disconnect(DisconnectReason.INVALID_COMMAND)
             return
-        _LOGGER.debug("RX: %s (%s)", command, command.cmd_id)
+        _LOGGER.debug("RX: %s (%s)", command, data.hex())
         if fut := self._response_handlers.pop(command.cmd_id, None):
             if fut and not fut.done():
                 fut.set_result(command)
