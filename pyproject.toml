@@ -88,12 +88,9 @@ good-names = [
 # consider-using-f-string - str.format sometimes more readable
 disable = [
     "format",
-    "abstract-method",
     "cyclic-import",
     "duplicate-code",
-    "inconsistent-return-statements",
     "locally-disabled",
-    "not-context-manager",
     "too-few-public-methods",
     "too-many-ancestors",
     "too-many-arguments",
@@ -107,7 +104,6 @@ disable = [
     "too-many-boolean-expressions",
     "unused-argument",
     "wrong-import-order",
-    "consider-using-f-string",
 ]
 enable = [
     "useless-suppression",
