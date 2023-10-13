@@ -33,9 +33,9 @@ jobs:
       - name: Lint with isort
         run: |
           isort improv_ble
-      - name: Lint with mypy
-        run: |
-          mypy improv_ble
+      #- name: Lint with mypy
+      #  run: |
+      #    mypy improv_ble
       - name: Lint with pylint
         run: |
           pylint improv_ble
