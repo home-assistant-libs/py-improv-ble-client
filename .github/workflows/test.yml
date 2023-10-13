@@ -26,16 +26,16 @@ jobs:
           pip install -r requirements-test.txt
       - name: Check formatting with black
         run: |
-          black improv_ble --check --diff
+          black improv_ble_client --check --diff
       - name: Lint with flake8
         run: |
-          flake8 improv_ble
+          flake8 improv_ble_client
       - name: Lint with isort
         run: |
-          isort improv_ble
+          isort improv_ble_client
       #- name: Lint with mypy
       #  run: |
-      #    mypy improv_ble
+      #    mypy improv_ble_client
       - name: Lint with pylint
         run: |
-          pylint improv_ble
+          pylint improv_ble_client
