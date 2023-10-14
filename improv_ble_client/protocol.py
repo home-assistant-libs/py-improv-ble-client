@@ -29,6 +29,7 @@ class State(IntEnum):
     AUTHORIZED = 2
     PROVISIONING = 3
     PROVISIONED = 4
+    DISCONNECTED = 0xFF
 
 
 class Error(IntEnum):

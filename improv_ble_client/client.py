@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Coroutine
+from contextlib import suppress
 from enum import Enum, IntEnum, IntFlag
 import logging
 from typing import Any, TypeVar, cast
@@ -88,7 +89,8 @@ class NotificationHandler:
         """Subscribe to error notifications."""
 
         def remove() -> None:
-            self.error_callbacks.remove(callback)
+            with suppress(ValueError):
+                self.error_callbacks.remove(callback)
 
         self.error_callbacks.append(callback)
         return remove
@@ -99,7 +101,8 @@ class NotificationHandler:
         """Subscribe to state notifications."""
 
         def remove() -> None:
-            self.state_callbacks.remove(callback)
+            with suppress(ValueError):
+                self.state_callbacks.remove(callback)
 
         self.state_callbacks.append(callback)
         return remove
@@ -238,10 +241,19 @@ class ImprovBLEClient:
     async def subscribe_state_updates(
         self, state_callback: Callable[[prot.State], None]
     ) -> Callable[[], None]:
-        """Subscribe to state updates."""
+        """Subscribe to state updates.
+
+        When subscribing, state_callback is be called with the current state
+        If the device disconnects, state_callback is called with State.DISCONNECTED
+        """
         _LOGGER.debug("%s: subscribe_state_updates", self.name)
 
         async def _subscribe_state_updates() -> Callable[[], None]:
+            state = cast(
+                prot.State,
+                await self.read_characteristic(CHARACTERISTIC_UUID_STATE),
+            )
+            state_callback(state)
             return self._notification_handlers.subscribe_state(state_callback)
 
         return await self._execute(_subscribe_state_updates)
@@ -395,6 +407,7 @@ class ImprovBLEClient:
     def _reset(self, reason: DisconnectReason) -> None:
         """Reset."""
         _LOGGER.debug("%s: reset", self.name)
+        self._notification_handlers.notify(prot.State.DISCONNECTED)
         self._notification_handlers.reset()
         for fut in self._response_handlers.values():
             fut.cancel()
