@@ -55,9 +55,7 @@ DEFAULT_ATTEMPTS = 3
 def device_filter(advertisement_data: AdvertisementData) -> bool:
     """Return True if the device is supported."""
     uuids = advertisement_data.service_uuids
-    if SERVICE_UUID in uuids:
-        return True
-    return False
+    return SERVICE_UUID in uuids
 
 
 class NotificationHandler:
@@ -118,6 +116,7 @@ class ImprovBLEClient:
     ):
         """Initialize."""
         self._advertisement_data = advertisement_data
+        self._background_tasks: set[asyncio.Task] = set()
         self._ble_device = ble_device
         self._client: BleakClient | None = None
         self._notification_handlers = NotificationHandler()
@@ -210,7 +209,7 @@ class ImprovBLEClient:
                 self._notification_handlers.subscribe_error(handle_error),
                 self._notification_handlers.subscribe_state(handle_state),
             ]
-            error_fut: asyncio.Future[prot.Error] = asyncio.Future()
+            error_fut: asyncio.Future[prot.Error] = self.loop.create_future()
             provisioned_fut = self.receive_response(prot.WiFiSettingsRes)
 
             try:
@@ -342,7 +341,9 @@ class ImprovBLEClient:
 
         def _schedule_disconnect() -> None:
             self._disconnect_timer = None
-            asyncio.create_task(_disconnect())
+            disconnect_task = asyncio.create_task(_disconnect())
+            self._background_tasks.add(disconnect_task)
+            disconnect_task.add_done_callback(self._background_tasks.discard)
 
         if self._disconnect_timer:
             self._disconnect_timer.cancel()
@@ -368,7 +369,9 @@ class ImprovBLEClient:
 
     def _disconnect(self, reason: DisconnectReason) -> None:
         """Schedule disconnect from device."""
-        asyncio.create_task(self._execute_disconnect(reason))
+        disconnect_task = asyncio.create_task(self._execute_disconnect(reason))
+        self._background_tasks.add(disconnect_task)
+        disconnect_task.add_done_callback(self._background_tasks.discard)
 
     async def _execute_disconnect(self, reason: DisconnectReason) -> None:
         """Execute disconnection."""
@@ -464,6 +467,6 @@ class ImprovBLEClient:
 
     def receive_response(self, cmd: type[_CMD_T]) -> asyncio.Future[_CMD_T]:
         """Receive a response."""
-        fut: asyncio.Future[_CMD_T] = asyncio.Future()
+        fut: asyncio.Future[_CMD_T] = self.loop.create_future()
         self._response_handlers[cmd.cmd_id] = cast(asyncio.Future[prot.Command], fut)
         return fut

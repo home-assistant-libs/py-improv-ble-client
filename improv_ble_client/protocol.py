@@ -48,12 +48,14 @@ STATE_MAP: dict[str, type[IntEnum | IntFlag]] = {
     CHARACTERISTIC_UUID_STATE: State,
 }
 
+HEADER = struct.Struct("!BB")
+
 
 class Command:
     """Base class for commands."""
 
     cmd_id: int
-    _format: str
+    _format: struct.Struct
     _len: int
     _strings: list[bytes]
 
@@ -76,7 +78,7 @@ class Command:
     @property
     def _header(self) -> bytes:
         """Return packed header."""
-        return struct.pack("!BB", self.cmd_id, self._len)
+        return HEADER.pack(self.cmd_id, self._len)
 
     @staticmethod
     def _calc_checksum(data: bytes) -> int:
@@ -84,17 +86,17 @@ class Command:
         return sum(data) & 0xFF
 
     @classmethod
-    def _calc_format(cls, strings: list[bytes]) -> str:
+    def _calc_format(cls, strings: list[bytes]) -> struct.Struct:
         if not strings:
-            return ""
+            return struct.Struct("")
         fmt = "!"
         for string in strings:
             fmt += f"b{len(string)}s"
-        return fmt
+        return struct.Struct(fmt)
 
     @classmethod
     def _calc_len(cls, strings: list[bytes]) -> int:
-        return struct.calcsize(cls._calc_format(strings))
+        return cls._calc_format(strings).size
 
     @classmethod
     def _extract_strings(cls, data: bytes) -> list[bytes]:
@@ -118,7 +120,7 @@ class Command:
         for string in strings:
             tmp.append(len(string))
             tmp.append(string)
-        data = self._header + struct.pack(self._format, *tmp)
+        data = self._header + self._format.pack(*tmp)
         return data + bytes([self._calc_checksum(data)])
 
     @classmethod
