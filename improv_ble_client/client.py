@@ -202,6 +202,8 @@ class ImprovBLEClient:
             """Execute the procedure"""
 
             def handle_error(value: prot.Error) -> None:
+                if error_fut.done():
+                    return
                 error_fut.set_result(value)
 
             def handle_state(state: prot.State) -> None:
@@ -224,9 +226,9 @@ class ImprovBLEClient:
                     (error_fut, provisioned_fut),
                     return_when=asyncio.FIRST_COMPLETED,
                 )
-                for task in pending:
-                    task.cancel()
-                if not isinstance(done.pop().result(), prot.WiFiSettingsRes):
+                for future in pending:
+                    future.cancel()
+                if done.pop() is error_fut:
                     raise ProvisioningFailed(error_fut.result())
 
                 if (redirect_url := provisioned_fut.result().redirect_url) is None:
