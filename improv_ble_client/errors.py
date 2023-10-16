@@ -20,6 +20,10 @@ class CharacteristicMissingError(Exception):
     """Raised when a characteristic is missing."""
 
 
+class CommandFailed(ImprovError):
+    """Raised when a command fails."""
+
+
 class Disconnected(ImprovError):
     """Raised when the connection is lost."""
 
@@ -36,8 +40,8 @@ class NotConnected(ImprovError):
     """Raised when connection is lost while sending a command."""
 
 
-class ProvisioningFailed(ImprovError):
-    """Raised when the device rejects a command."""
+class ProvisioningFailed(CommandFailed):
+    """Raised when provisioning fails."""
 
     def __init__(self, error: Error):
         self.error = error
