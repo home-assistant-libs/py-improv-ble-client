@@ -16,6 +16,10 @@ class ImprovError(Exception):
     """Base class for exceptions."""
 
 
+class CharacteristicMissingError(Exception):
+    """Raised when a characteristic is missing."""
+
+
 class Disconnected(ImprovError):
     """Raised when the connection is lost."""
 

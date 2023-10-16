@@ -13,6 +13,7 @@ from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
+from bleak.backends.service import BleakGATTServiceCollection
 from bleak_retry_connector import (
     BleakClientWithServiceCache,
     establish_connection,
@@ -21,6 +22,7 @@ from bleak_retry_connector import (
 
 from . import protocol as prot
 from .errors import (
+    CharacteristicMissingError,
     Disconnected,
     ImprovError,
     InvalidCommand,
@@ -37,6 +39,7 @@ from .protocol import (
     CHARACTERISTIC_UUID_RPC_COMMAND,
     CHARACTERISTIC_UUID_RPC_RESULT,
     CHARACTERISTIC_UUID_STATE,
+    IMPROV_CHARACTERISTICS,
     SERVICE_UUID,
     STATE_MAP,
     parse_result,
@@ -315,6 +318,23 @@ class ImprovBLEClient:
             _LOGGER.debug("%s: Connected; RSSI: %s", self.name, self.rssi)
 
             self._client = client
+
+            # Make sure the device has all improv characteristics
+            try:
+                self._resolve_characteristics(client.services)
+            except CharacteristicMissingError as err:
+                _LOGGER.debug(
+                    "%s: characteristic missing, clearing cache: %s; RSSI: %s",
+                    self.name,
+                    err,
+                    self.rssi,
+                    exc_info=True,
+                )
+                await client.clear_cache()
+                self._cancel_disconnect_timer()
+                await self._execute_disconnect_with_lock(DisconnectReason.ERROR)
+                raise
+
             self._disconnect_reason = None
             self._reset_disconnect_timer()
 
@@ -331,12 +351,24 @@ class ImprovBLEClient:
                 CHARACTERISTIC_UUID_STATE, self._notification_handler
             )
 
+    def _resolve_characteristics(self, services: BleakGATTServiceCollection) -> None:
+        """Resolve characteristics."""
+        for characteristic in IMPROV_CHARACTERISTICS:
+            if not services.get_characteristic(characteristic):
+                raise CharacteristicMissingError(characteristic)
+
     def _raise_if_not_connected(self) -> None:
         """Raise if the connection to device is lost."""
         if self._client and self._client.is_connected:
             self._reset_disconnect_timer()
             return
         raise NotConnected
+
+    def _cancel_disconnect_timer(self):
+        """Cancel disconnect timer."""
+        if self._disconnect_timer:
+            self._disconnect_timer.cancel()
+            self._disconnect_timer = None
 
     def _reset_disconnect_timer(self) -> None:
         """Reset disconnect timer.
@@ -354,13 +386,12 @@ class ImprovBLEClient:
             await self._execute_disconnect(DisconnectReason.TIMEOUT)
 
         def _schedule_disconnect() -> None:
-            self._disconnect_timer = None
+            self._cancel_disconnect_timer()
             disconnect_task = asyncio.create_task(_disconnect())
             self._background_tasks.add(disconnect_task)
             disconnect_task.add_done_callback(self._background_tasks.discard)
 
-        if self._disconnect_timer:
-            self._disconnect_timer.cancel()
+        self._cancel_disconnect_timer()
         self._expected_disconnect = False
         self._disconnect_timer = self.loop.call_later(
             DISCONNECT_DELAY, _schedule_disconnect
@@ -392,19 +423,24 @@ class ImprovBLEClient:
         _LOGGER.debug("%s: Execute disconnect", self.name)
         if self._connect_lock.locked():
             _LOGGER.debug(
-                "%s: Connection already in progress, waiting for it to complete; "
+                "%s: Disconnect already in progress, waiting for it to complete; "
                 "RSSI: %s",
                 self.name,
                 self.rssi,
             )
         async with self._connect_lock:
-            client = self._client
-            self._client = None
-            if client and client.is_connected:
-                self._expected_disconnect = True
-                await client.disconnect()
-            self._reset(reason)
+            await self._execute_disconnect_with_lock(reason)
         _LOGGER.debug("%s: Execute disconnect done", self.name)
+
+    async def _execute_disconnect_with_lock(self, reason: DisconnectReason) -> None:
+        """Execute disconnection."""
+        assert self._connect_lock.locked(), "Lock not held"
+        client = self._client
+        self._client = None
+        if client and client.is_connected:
+            self._expected_disconnect = True
+            await client.disconnect()
+        self._reset(reason)
 
     def _reset(self, reason: DisconnectReason) -> None:
         """Reset."""
@@ -415,9 +451,7 @@ class ImprovBLEClient:
             fut.cancel()
         self._response_handlers = {}
         self._disconnect_reason = reason
-        if self._disconnect_timer:
-            self._disconnect_timer.cancel()
-        self._disconnect_timer = None
+        self._cancel_disconnect_timer()
 
     def _validate_state(
         self, characteristic_uuid: str, data: bytes
