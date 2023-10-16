@@ -7,7 +7,7 @@ from .client import ImprovBLEClient, device_filter
 from .protocol import SERVICE_UUID, Error, State
 
 __all__ = [
-    SERVICE_UUID,
+    "SERVICE_UUID",
     "Error",
     "State",
     "ImprovBLEClient",
