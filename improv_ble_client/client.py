@@ -387,9 +387,7 @@ class ImprovBLEClient:
 
         def _schedule_disconnect() -> None:
             self._cancel_disconnect_timer()
-            disconnect_task = asyncio.create_task(_disconnect())
-            self._background_tasks.add(disconnect_task)
-            disconnect_task.add_done_callback(self._background_tasks.discard)
+            self._async_create_background_task(_disconnect())
 
         self._cancel_disconnect_timer()
         self._expected_disconnect = False
@@ -414,9 +412,7 @@ class ImprovBLEClient:
 
     def _disconnect(self, reason: DisconnectReason) -> None:
         """Schedule disconnect from device."""
-        disconnect_task = asyncio.create_task(self._execute_disconnect(reason))
-        self._background_tasks.add(disconnect_task)
-        disconnect_task.add_done_callback(self._background_tasks.discard)
+        self._async_create_background_task(self._execute_disconnect(reason))
 
     async def _execute_disconnect(self, reason: DisconnectReason) -> None:
         """Execute disconnection."""
@@ -519,3 +515,12 @@ class ImprovBLEClient:
         fut: asyncio.Future[_CMD_T] = self.loop.create_future()
         self._response_handlers[cmd.cmd_id] = cast(asyncio.Future[prot.Command], fut)
         return fut
+
+    def _async_create_background_task(
+        self, func: Coroutine[Any, Any, _T]
+    ) -> asyncio.Task[_T]:
+        """Create a background task and add it to the set of background tasks."""
+        task = asyncio.create_task(func)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+        return task
