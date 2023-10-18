@@ -40,6 +40,7 @@ from .protocol import (
     CHARACTERISTIC_UUID_RPC_RESULT,
     CHARACTERISTIC_UUID_STATE,
     IMPROV_CHARACTERISTICS,
+    SERVICE_DATA_UUID,
     SERVICE_UUID,
     STATE_MAP,
     parse_result,
@@ -57,9 +58,21 @@ DEFAULT_ATTEMPTS = 3
 
 
 def device_filter(advertisement_data: AdvertisementData) -> bool:
-    """Return True if the device is supported."""
+    """Return True if the device is supported and ready to be provisioned."""
     uuids = advertisement_data.service_uuids
-    return SERVICE_UUID in uuids
+    service_data = advertisement_data.service_data
+    if SERVICE_UUID not in uuids or SERVICE_DATA_UUID not in service_data:
+        return False
+    try:
+        improv_service_data = prot.ImprovServiceData.from_bytes(
+            service_data[SERVICE_DATA_UUID]
+        )
+    except InvalidCommand:
+        return False
+    return improv_service_data.state not in (
+        prot.State.PROVISIONING,
+        prot.State.PROVISIONED,
+    )
 
 
 class NotificationHandler:
