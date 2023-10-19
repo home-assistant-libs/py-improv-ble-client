@@ -9,6 +9,7 @@ from typing import Final, TypeVar
 from .errors import InvalidCommand
 
 SERVICE_UUID: Final = "00467768-6228-2272-4663-277478268000"
+SERVICE_DATA_UUID: Final = "00004677-0000-1000-8000-00805f9b34fb"
 CHARACTERISTIC_UUID_CAPABILITIES: Final = "00467768-6228-2272-4663-277478268005"
 CHARACTERISTIC_UUID_STATE: Final = "00467768-6228-2272-4663-277478268001"
 CHARACTERISTIC_UUID_ERROR: Final = "00467768-6228-2272-4663-277478268002"
@@ -25,7 +26,7 @@ IMPROV_CHARACTERISTICS = (
 
 
 class Capabilities(IntFlag):
-    """State."""
+    """Capabilities."""
 
     IDENTIFY = 1
 
@@ -257,6 +258,27 @@ class IdentifyCmd(Command):
         super()._validate(data)
         if len(cls._extract_strings(data)) != 0:
             raise InvalidCommand("Invalid strings", data.hex())
+
+
+class ImprovServiceData:
+    """Service data."""
+
+    def __init__(self, state: State, capabilities: Capabilities) -> None:
+        """Initialize."""
+        self.capabilities = capabilities
+        self.state = state
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> ImprovServiceData:
+        """Initialize from serialized representation of the command."""
+        if len(data) != 6:
+            raise InvalidCommand("Invalid service data", data.hex())
+        try:
+            state = State(data[0])
+            capabilities = Capabilities(data[1])
+        except ValueError as exc:
+            raise InvalidCommand("Invalid service data", data.hex()) from exc
+        return cls(state, capabilities)
 
 
 RESULT_TYPES: dict[int, type[Command]] = {
