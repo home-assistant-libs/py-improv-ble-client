@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name         = "py-improv-ble-client"
-version      = "1.0.2"
+version      = "1.0.3"
 license      = {text = "MIT"}
 description  = "API to provision devices which implement Improv via BLE"
 readme       = "README.md"
