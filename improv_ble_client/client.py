@@ -218,7 +218,7 @@ class ImprovBLEClient:
             """Execute the procedure"""
 
             def handle_error(value: prot.Error) -> None:
-                if error_fut.done():
+                if value == prot.Error.NO_ERROR or error_fut.done():
                     return
                 error_fut.set_result(value)
 
