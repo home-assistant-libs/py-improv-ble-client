@@ -11,7 +11,7 @@ readme       = "README.md"
 requires-python = ">=3.11.0"
 
 [project.urls]
-"Homepage" = "https://github.com/homeassistant-libs/py-improv-ble-client"
+"Homepage" = "https://github.com/home-assistant-libs/py-improv-ble-client"
 
 [tool.setuptools]
 platforms = ["any"]
