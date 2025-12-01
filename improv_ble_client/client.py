@@ -171,15 +171,18 @@ class ImprovBLEClient:
             return self._advertisement_data.rssi
         return None
 
+    async def get_capabilities(self) -> prot.Capabilities:
+        """Get the capabilities of the device."""
+        return await self.read_characteristic(
+                CHARACTERISTIC_UUID_CAPABILITIES
+            )
+
     async def can_identify(self) -> bool:
         """Return if the device supports identify."""
         _LOGGER.debug("%s: can_identify", self.name)
 
         async def _can_identify() -> bool:
-            capabilities = await self.read_characteristic(
-                CHARACTERISTIC_UUID_CAPABILITIES
-            )
-            return bool(capabilities & prot.Capabilities.IDENTIFY)
+            return bool(await self.get_capabilities() & prot.Capabilities.IDENTIFY)
 
         return await self._execute(_can_identify)
 
@@ -191,6 +194,94 @@ class ImprovBLEClient:
             await self.send_cmd(prot.IdentifyCmd())
 
         await self._execute(_identify)
+
+    async def can_get_device_info(self) -> bool:
+        """Return if the device supports device info (v2.1)."""
+        _LOGGER.debug("%s: can_get_device_info", self.name)
+
+        async def _can_get_device_info() -> bool:
+            return bool(await self.get_capabilities() & prot.Capabilities.DEVICE_INFO)
+
+        return await self._execute(_can_get_device_info)
+
+    async def get_device_info(self) -> prot.DeviceInfoRes:
+        """Get device information (v2.1).
+
+        Returns firmware name, version, hardware chip/variant, and device name.
+        Does not require service authorization.
+        """
+        _LOGGER.debug("%s: get_device_info", self.name)
+
+        async def _get_device_info() -> prot.DeviceInfoRes:
+            response_fut = self.receive_response(prot.DeviceInfoRes)
+            await self.send_cmd(prot.DeviceInfoCmd())
+            return await response_fut
+
+        return await self._execute(_get_device_info)
+
+    async def can_scan_wifi(self) -> bool:
+        """Return if the device supports WiFi scanning (v2.2)."""
+        _LOGGER.debug("%s: can_scan_wifi", self.name)
+
+        async def _can_scan_wifi() -> bool:
+            return bool(await self.get_capabilities() & prot.Capabilities.SCAN_WIFI)
+
+        return await self._execute(_can_scan_wifi)
+
+    async def scan_wifi(self) -> prot.ScanWifiRes:
+        """Scan for available WiFi networks (v2.2).
+
+        Returns list of networks with SSID, RSSI, and authentication type.
+        """
+        _LOGGER.debug("%s: scan_wifi", self.name)
+
+        async def _scan_wifi() -> prot.ScanWifiRes:
+            response_fut = self.receive_response(prot.ScanWifiRes)
+            await self.send_cmd(prot.ScanWifiCmd())
+            return await response_fut
+
+        return await self._execute(_scan_wifi)
+
+    async def can_set_hostname(self) -> bool:
+        """Return if the device supports hostname get/set (v2.3)."""
+        _LOGGER.debug("%s: can_set_hostname", self.name)
+
+        async def _can_set_hostname() -> bool:
+            return bool(await self.get_capabilities() & prot.Capabilities.HOSTNAME)
+
+        return await self._execute(_can_set_hostname)
+
+    async def get_hostname(self) -> str:
+        """Get device hostname (v2.3).
+
+        Only available while device is in "Authorized" state.
+        """
+        _LOGGER.debug("%s: get_hostname", self.name)
+
+        async def _get_hostname() -> str:
+            response_fut = self.receive_response(prot.HostnameRes)
+            await self.send_cmd(prot.HostnameCmd())
+            result = await response_fut
+            return result.hostname.decode()
+
+        return await self._execute(_get_hostname)
+
+    async def set_hostname(self, hostname: str) -> str:
+        """Set device hostname (v2.3).
+
+        Hostname must conform to RFC 1123 and be limited to 255 characters.
+        Only available while device is in "Authorized" state.
+        Returns the hostname that was set.
+        """
+        _LOGGER.debug("%s: set_hostname: %s", self.name, hostname)
+
+        async def _set_hostname() -> str:
+            response_fut = self.receive_response(prot.HostnameRes)
+            await self.send_cmd(prot.HostnameCmd(hostname.encode()))
+            result = await response_fut
+            return result.hostname.decode()
+
+        return await self._execute(_set_hostname)
 
     async def need_authorization(self) -> bool:
         """Return if the device needs authorization."""
