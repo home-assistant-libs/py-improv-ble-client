@@ -173,9 +173,7 @@ class ImprovBLEClient:
 
     async def get_capabilities(self) -> prot.Capabilities:
         """Get the capabilities of the device."""
-        return await self.read_characteristic(
-                CHARACTERISTIC_UUID_CAPABILITIES
-            )
+        return await self.read_characteristic(CHARACTERISTIC_UUID_CAPABILITIES)
 
     async def can_identify(self) -> bool:
         """Return if the device supports identify."""

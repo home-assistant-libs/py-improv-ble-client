@@ -369,7 +369,7 @@ class ScanWifiRes(Command):
 
     cmd_id = 0x04
 
-    networks: list[tuple[bytes, bytes, bytes]] # [name, rssi, auth_type]
+    networks: list[tuple[bytes, bytes, bytes]]  # [name, rssi, auth_type]
 
     def __init__(self, networks: list[tuple[bytes, bytes, bytes]]) -> None:
         """Initialize with list of (ssid, rssi, auth_type) tuples."""
