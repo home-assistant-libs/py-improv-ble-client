@@ -41,6 +41,10 @@ class NotConnected(ImprovError):
     """Raised when connection is lost while sending a command."""
 
 
+class NotSupported(ImprovError):
+    """Raised when a capability is not supported by the device."""
+
+
 class ProvisioningFailed(CommandFailed):
     """Raised when provisioning fails."""
 

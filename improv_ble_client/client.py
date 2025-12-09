@@ -27,6 +27,7 @@ from .errors import (
     ImprovError,
     InvalidCommand,
     NotConnected,
+    NotSupported,
     ProvisioningFailed,
     Timeout,
     UnexpectedDisconnect,
@@ -137,6 +138,7 @@ class ImprovBLEClient:
         self._advertisement_data = advertisement_data
         self._background_tasks: set[asyncio.Task] = set()
         self._ble_device = ble_device
+        self._capabilities: prot.Capabilities | None = None
         self._client: BleakClient | None = None
         self._notification_handlers = NotificationHandler()
         self._response_handlers: dict[int, asyncio.Future[prot.Command]] = {}
@@ -171,36 +173,40 @@ class ImprovBLEClient:
             return self._advertisement_data.rssi
         return None
 
-    async def get_capabilities(self) -> prot.Capabilities:
-        """Get the capabilities of the device."""
-        return await self.read_characteristic(CHARACTERISTIC_UUID_CAPABILITIES)
+    @property
+    def capabilities(self) -> prot.Capabilities:
+        """Get the capabilities of the device.
 
-    async def can_identify(self) -> bool:
+        Only available after connection is established.
+        """
+        if self._capabilities is None:
+            raise NotConnected
+        return self._capabilities
+
+    @property
+    def can_identify(self) -> bool:
         """Return if the device supports identify."""
-        _LOGGER.debug("%s: can_identify", self.name)
-
-        async def _can_identify() -> bool:
-            return bool(await self.get_capabilities() & prot.Capabilities.IDENTIFY)
-
-        return await self._execute(_can_identify)
+        return bool(
+            self._capabilities and self._capabilities & prot.Capabilities.IDENTIFY
+        )
 
     async def identify(self) -> None:
         """Identify the device."""
         _LOGGER.debug("%s: identify", self.name)
+        if not self.can_identify:
+            raise NotSupported
 
         async def _identify() -> None:
             await self.send_cmd(prot.IdentifyCmd())
 
         await self._execute(_identify)
 
-    async def can_get_device_info(self) -> bool:
+    @property
+    def can_get_device_info(self) -> bool:
         """Return if the device supports device info (v2.1)."""
-        _LOGGER.debug("%s: can_get_device_info", self.name)
-
-        async def _can_get_device_info() -> bool:
-            return bool(await self.get_capabilities() & prot.Capabilities.DEVICE_INFO)
-
-        return await self._execute(_can_get_device_info)
+        return bool(
+            self._capabilities and self._capabilities & prot.Capabilities.DEVICE_INFO
+        )
 
     async def get_device_info(self) -> prot.DeviceInfoRes:
         """Get device information (v2.1).
@@ -209,6 +215,8 @@ class ImprovBLEClient:
         Does not require service authorization.
         """
         _LOGGER.debug("%s: get_device_info", self.name)
+        if not self.can_get_device_info:
+            raise NotSupported
 
         async def _get_device_info() -> prot.DeviceInfoRes:
             response_fut = self.receive_response(prot.DeviceInfoRes)
@@ -217,14 +225,12 @@ class ImprovBLEClient:
 
         return await self._execute(_get_device_info)
 
-    async def can_scan_wifi(self) -> bool:
+    @property
+    def can_scan_wifi(self) -> bool:
         """Return if the device supports WiFi scanning (v2.2)."""
-        _LOGGER.debug("%s: can_scan_wifi", self.name)
-
-        async def _can_scan_wifi() -> bool:
-            return bool(await self.get_capabilities() & prot.Capabilities.SCAN_WIFI)
-
-        return await self._execute(_can_scan_wifi)
+        return bool(
+            self._capabilities and self._capabilities & prot.Capabilities.SCAN_WIFI
+        )
 
     async def scan_wifi(self) -> prot.ScanWifiRes:
         """Scan for available WiFi networks (v2.2).
@@ -232,6 +238,8 @@ class ImprovBLEClient:
         Returns list of networks with SSID, RSSI, and authentication type.
         """
         _LOGGER.debug("%s: scan_wifi", self.name)
+        if not self.can_scan_wifi:
+            raise NotSupported
 
         async def _scan_wifi() -> prot.ScanWifiRes:
             response_fut = self.receive_response(prot.ScanWifiRes)
@@ -240,14 +248,12 @@ class ImprovBLEClient:
 
         return await self._execute(_scan_wifi)
 
-    async def can_set_hostname(self) -> bool:
+    @property
+    def can_set_hostname(self) -> bool:
         """Return if the device supports hostname get/set (v2.3)."""
-        _LOGGER.debug("%s: can_set_hostname", self.name)
-
-        async def _can_set_hostname() -> bool:
-            return bool(await self.get_capabilities() & prot.Capabilities.HOSTNAME)
-
-        return await self._execute(_can_set_hostname)
+        return bool(
+            self._capabilities and self._capabilities & prot.Capabilities.HOSTNAME
+        )
 
     async def get_hostname(self) -> str:
         """Get device hostname (v2.3).
@@ -255,6 +261,8 @@ class ImprovBLEClient:
         Only available while device is in "Authorized" state.
         """
         _LOGGER.debug("%s: get_hostname", self.name)
+        if not self.can_set_hostname:
+            raise NotSupported
 
         async def _get_hostname() -> str:
             response_fut = self.receive_response(prot.HostnameRes)
@@ -272,6 +280,8 @@ class ImprovBLEClient:
         Returns the hostname that was set.
         """
         _LOGGER.debug("%s: set_hostname: %s", self.name, hostname)
+        if not self.can_set_hostname:
+            raise NotSupported
 
         async def _set_hostname() -> str:
             response_fut = self.receive_response(prot.HostnameRes)
@@ -453,6 +463,18 @@ class ImprovBLEClient:
                 CHARACTERISTIC_UUID_STATE, self._notification_handler
             )
 
+            # Read capabilities from device
+            self._capabilities = cast(
+                prot.Capabilities,
+                await self.read_characteristic(CHARACTERISTIC_UUID_CAPABILITIES),
+            )
+            _LOGGER.debug(
+                "%s: Capabilities: %s; RSSI: %s",
+                self.name,
+                self._capabilities,
+                self.rssi,
+            )
+
     def _resolve_characteristics(self, services: BleakGATTServiceCollection) -> None:
         """Resolve characteristics."""
         for characteristic in IMPROV_CHARACTERISTICS:
@@ -543,6 +565,7 @@ class ImprovBLEClient:
     def _reset(self, reason: DisconnectReason) -> None:
         """Reset."""
         _LOGGER.debug("%s: reset", self.name)
+        self._capabilities = None
         self._notification_handlers.notify(prot.State.DISCONNECTED)
         self._notification_handlers.reset()
         for fut in self._response_handlers.values():
