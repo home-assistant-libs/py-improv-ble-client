@@ -186,9 +186,7 @@ class ImprovBLEClient:
     @property
     def can_identify(self) -> bool:
         """Return if the device supports identify."""
-        return bool(
-            self._capabilities and self._capabilities & prot.Capabilities.IDENTIFY
-        )
+        return bool(self.capabilities & prot.Capabilities.IDENTIFY)
 
     async def identify(self) -> None:
         """Identify the device."""
@@ -204,9 +202,7 @@ class ImprovBLEClient:
     @property
     def can_get_device_info(self) -> bool:
         """Return if the device supports device info (v2.1)."""
-        return bool(
-            self._capabilities and self._capabilities & prot.Capabilities.DEVICE_INFO
-        )
+        return bool(self.capabilities & prot.Capabilities.DEVICE_INFO)
 
     async def get_device_info(self) -> prot.DeviceInfoRes:
         """Get device information (v2.1).
@@ -219,18 +215,16 @@ class ImprovBLEClient:
             raise NotSupported
 
         async def _get_device_info() -> prot.DeviceInfoRes:
-            response_fut = self.receive_response(prot.DeviceInfoRes)
-            await self.send_cmd(prot.DeviceInfoCmd())
-            return await response_fut
+            return await self.send_cmd_with_response(
+                prot.DeviceInfoCmd(), prot.DeviceInfoRes
+            )
 
         return await self._execute(_get_device_info)
 
     @property
     def can_scan_wifi(self) -> bool:
         """Return if the device supports WiFi scanning (v2.2)."""
-        return bool(
-            self._capabilities and self._capabilities & prot.Capabilities.SCAN_WIFI
-        )
+        return bool(self.capabilities & prot.Capabilities.SCAN_WIFI)
 
     async def scan_wifi(self) -> prot.ScanWifiRes:
         """Scan for available WiFi networks (v2.2).
@@ -242,18 +236,16 @@ class ImprovBLEClient:
             raise NotSupported
 
         async def _scan_wifi() -> prot.ScanWifiRes:
-            response_fut = self.receive_response(prot.ScanWifiRes)
-            await self.send_cmd(prot.ScanWifiCmd())
-            return await response_fut
+            return await self.send_cmd_with_response(
+                prot.ScanWifiCmd(), prot.ScanWifiRes
+            )
 
         return await self._execute(_scan_wifi)
 
     @property
     def can_set_hostname(self) -> bool:
         """Return if the device supports hostname get/set (v2.3)."""
-        return bool(
-            self._capabilities and self._capabilities & prot.Capabilities.HOSTNAME
-        )
+        return bool(self.capabilities & prot.Capabilities.HOSTNAME)
 
     async def get_hostname(self) -> str:
         """Get device hostname (v2.3).
@@ -265,9 +257,9 @@ class ImprovBLEClient:
             raise NotSupported
 
         async def _get_hostname() -> str:
-            response_fut = self.receive_response(prot.HostnameRes)
-            await self.send_cmd(prot.HostnameCmd())
-            result = await response_fut
+            result = await self.send_cmd_with_response(
+                prot.HostnameCmd(), prot.HostnameRes
+            )
             return result.hostname.decode()
 
         return await self._execute(_get_hostname)
@@ -284,9 +276,9 @@ class ImprovBLEClient:
             raise NotSupported
 
         async def _set_hostname() -> str:
-            response_fut = self.receive_response(prot.HostnameRes)
-            await self.send_cmd(prot.HostnameCmd(hostname.encode()))
-            result = await response_fut
+            result = await self.send_cmd_with_response(
+                prot.HostnameCmd(hostname.encode()), prot.HostnameRes
+            )
             return result.hostname.decode()
 
         return await self._execute(_set_hostname)
@@ -640,6 +632,14 @@ class ImprovBLEClient:
         fut: asyncio.Future[_CMD_T] = self.loop.create_future()
         self._response_handlers[cmd.cmd_id] = cast(asyncio.Future[prot.Command], fut)
         return fut
+
+    async def send_cmd_with_response(
+        self, command: prot.Command, response_type: type[_CMD_T]
+    ) -> _CMD_T:
+        """Send a command and wait for a response of the provided type."""
+        fut = self.receive_response(response_type)
+        await self.send_cmd(command)
+        return await fut
 
     def _async_create_background_task(
         self, func: Coroutine[Any, Any, _T]

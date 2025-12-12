@@ -413,7 +413,7 @@ class HostnameCmd(Command):
     hostname: bytes | None
 
     def __init__(self, hostname: bytes | None = None) -> None:
-        """Initialize. If hostname is None, retrieves current hostname. Otherwise sets hostname."""
+        """Initialize. If hostname is None, gets current hostname. Else set hostname."""
         super().__init__([hostname] if hostname is not None else [])
         self.hostname = hostname
 
