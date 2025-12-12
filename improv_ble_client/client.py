@@ -214,12 +214,9 @@ class ImprovBLEClient:
         if not self.can_get_device_info:
             raise NotSupported
 
-        async def _get_device_info() -> prot.DeviceInfoRes:
-            return await self.send_cmd_with_response(
-                prot.DeviceInfoCmd(), prot.DeviceInfoRes
-            )
-
-        return await self._execute(_get_device_info)
+        return await self._execute_cmd_with_response(
+            prot.DeviceInfoCmd(), prot.DeviceInfoRes
+        )
 
     @property
     def can_scan_wifi(self) -> bool:
@@ -235,12 +232,9 @@ class ImprovBLEClient:
         if not self.can_scan_wifi:
             raise NotSupported
 
-        async def _scan_wifi() -> prot.ScanWifiRes:
-            return await self.send_cmd_with_response(
-                prot.ScanWifiCmd(), prot.ScanWifiRes
-            )
-
-        return await self._execute(_scan_wifi)
+        return await self._execute_cmd_with_response(
+            prot.ScanWifiCmd(), prot.ScanWifiRes
+        )
 
     @property
     def can_set_hostname(self) -> bool:
@@ -256,13 +250,10 @@ class ImprovBLEClient:
         if not self.can_set_hostname:
             raise NotSupported
 
-        async def _get_hostname() -> str:
-            result = await self.send_cmd_with_response(
-                prot.HostnameCmd(), prot.HostnameRes
-            )
-            return result.hostname.decode()
-
-        return await self._execute(_get_hostname)
+        result = await self._execute_cmd_with_response(
+            prot.HostnameCmd(), prot.HostnameRes
+        )
+        return result.hostname.decode()
 
     async def set_hostname(self, hostname: str) -> str:
         """Set device hostname (v2.3).
@@ -275,13 +266,10 @@ class ImprovBLEClient:
         if not self.can_set_hostname:
             raise NotSupported
 
-        async def _set_hostname() -> str:
-            result = await self.send_cmd_with_response(
-                prot.HostnameCmd(hostname.encode()), prot.HostnameRes
-            )
-            return result.hostname.decode()
-
-        return await self._execute(_set_hostname)
+        result = await self._execute_cmd_with_response(
+            prot.HostnameCmd(hostname.encode()), prot.HostnameRes
+        )
+        return result.hostname.decode()
 
     async def need_authorization(self) -> bool:
         """Return if the device needs authorization."""
@@ -554,6 +542,16 @@ class ImprovBLEClient:
             await client.disconnect()
         self._reset(reason)
 
+    async def _execute_cmd_with_response(
+        self, command: prot.Command, response_type: type[_CMD_T]
+    ) -> _CMD_T:
+        async def _do_execute() -> _CMD_T:
+            ret = self.receive_response(response_type)
+            await self.send_cmd(command)
+            return await ret
+
+        return await self._execute(_do_execute)
+
     def _reset(self, reason: DisconnectReason) -> None:
         """Reset."""
         _LOGGER.debug("%s: reset", self.name)
@@ -632,14 +630,6 @@ class ImprovBLEClient:
         fut: asyncio.Future[_CMD_T] = self.loop.create_future()
         self._response_handlers[cmd.cmd_id] = cast(asyncio.Future[prot.Command], fut)
         return fut
-
-    async def send_cmd_with_response(
-        self, command: prot.Command, response_type: type[_CMD_T]
-    ) -> _CMD_T:
-        """Send a command and wait for a response of the provided type."""
-        fut = self.receive_response(response_type)
-        await self.send_cmd(command)
-        return await fut
 
     def _async_create_background_task(
         self, func: Coroutine[Any, Any, _T]
