@@ -27,6 +27,7 @@ from .errors import (
     ImprovError,
     InvalidCommand,
     NotConnected,
+    NotSupported,
     ProvisioningFailed,
     Timeout,
     UnexpectedDisconnect,
@@ -137,6 +138,7 @@ class ImprovBLEClient:
         self._advertisement_data = advertisement_data
         self._background_tasks: set[asyncio.Task] = set()
         self._ble_device = ble_device
+        self._capabilities: prot.Capabilities | None = None
         self._client: BleakClient | None = None
         self._notification_handlers = NotificationHandler()
         self._response_handlers: dict[int, asyncio.Future[prot.Command]] = {}
@@ -171,26 +173,103 @@ class ImprovBLEClient:
             return self._advertisement_data.rssi
         return None
 
-    async def can_identify(self) -> bool:
+    @property
+    def capabilities(self) -> prot.Capabilities:
+        """Get the capabilities of the device.
+
+        Only available after connection is established.
+        """
+        if self._capabilities is None:
+            raise NotConnected
+        return self._capabilities
+
+    @property
+    def can_identify(self) -> bool:
         """Return if the device supports identify."""
-        _LOGGER.debug("%s: can_identify", self.name)
-
-        async def _can_identify() -> bool:
-            capabilities = await self.read_characteristic(
-                CHARACTERISTIC_UUID_CAPABILITIES
-            )
-            return bool(capabilities & prot.Capabilities.IDENTIFY)
-
-        return await self._execute(_can_identify)
+        return bool(self.capabilities & prot.Capabilities.IDENTIFY)
 
     async def identify(self) -> None:
         """Identify the device."""
         _LOGGER.debug("%s: identify", self.name)
+        if not self.can_identify:
+            raise NotSupported
 
         async def _identify() -> None:
             await self.send_cmd(prot.IdentifyCmd())
 
         await self._execute(_identify)
+
+    @property
+    def can_get_device_info(self) -> bool:
+        """Return if the device supports device info (v2.1)."""
+        return bool(self.capabilities & prot.Capabilities.DEVICE_INFO)
+
+    async def get_device_info(self) -> prot.DeviceInfoRes:
+        """Get device information (v2.1).
+
+        Returns firmware name, version, hardware chip/variant, and device name.
+        Does not require service authorization.
+        """
+        _LOGGER.debug("%s: get_device_info", self.name)
+        if not self.can_get_device_info:
+            raise NotSupported
+
+        return await self._execute_cmd_with_response(
+            prot.DeviceInfoCmd(), prot.DeviceInfoRes
+        )
+
+    @property
+    def can_scan_wifi(self) -> bool:
+        """Return if the device supports WiFi scanning (v2.2)."""
+        return bool(self.capabilities & prot.Capabilities.SCAN_WIFI)
+
+    async def scan_wifi(self) -> prot.ScanWifiRes:
+        """Scan for available WiFi networks (v2.2).
+
+        Returns list of networks with SSID, RSSI, and authentication type.
+        """
+        _LOGGER.debug("%s: scan_wifi", self.name)
+        if not self.can_scan_wifi:
+            raise NotSupported
+
+        return await self._execute_cmd_with_response(
+            prot.ScanWifiCmd(), prot.ScanWifiRes
+        )
+
+    @property
+    def can_set_hostname(self) -> bool:
+        """Return if the device supports hostname get/set (v2.3)."""
+        return bool(self.capabilities & prot.Capabilities.HOSTNAME)
+
+    async def get_hostname(self) -> str:
+        """Get device hostname (v2.3).
+
+        Only available while device is in "Authorized" state.
+        """
+        _LOGGER.debug("%s: get_hostname", self.name)
+        if not self.can_set_hostname:
+            raise NotSupported
+
+        result = await self._execute_cmd_with_response(
+            prot.HostnameCmd(), prot.HostnameRes
+        )
+        return result.hostname.decode()
+
+    async def set_hostname(self, hostname: str) -> str:
+        """Set device hostname (v2.3).
+
+        Hostname must conform to RFC 1123 and be limited to 255 characters.
+        Only available while device is in "Authorized" state.
+        Returns the hostname that was set.
+        """
+        _LOGGER.debug("%s: set_hostname: %s", self.name, hostname)
+        if not self.can_set_hostname:
+            raise NotSupported
+
+        result = await self._execute_cmd_with_response(
+            prot.HostnameCmd(hostname.encode()), prot.HostnameRes
+        )
+        return result.hostname.decode()
 
     async def need_authorization(self) -> bool:
         """Return if the device needs authorization."""
@@ -364,6 +443,18 @@ class ImprovBLEClient:
                 CHARACTERISTIC_UUID_STATE, self._notification_handler
             )
 
+            # Read capabilities from device
+            self._capabilities = cast(
+                prot.Capabilities,
+                await self.read_characteristic(CHARACTERISTIC_UUID_CAPABILITIES),
+            )
+            _LOGGER.debug(
+                "%s: Capabilities: %s; RSSI: %s",
+                self.name,
+                self._capabilities,
+                self.rssi,
+            )
+
     def _resolve_characteristics(self, services: BleakGATTServiceCollection) -> None:
         """Resolve characteristics."""
         for characteristic in IMPROV_CHARACTERISTICS:
@@ -451,9 +542,20 @@ class ImprovBLEClient:
             await client.disconnect()
         self._reset(reason)
 
+    async def _execute_cmd_with_response(
+        self, command: prot.Command, response_type: type[_CMD_T]
+    ) -> _CMD_T:
+        async def _do_execute() -> _CMD_T:
+            ret = self.receive_response(response_type)
+            await self.send_cmd(command)
+            return await ret
+
+        return await self._execute(_do_execute)
+
     def _reset(self, reason: DisconnectReason) -> None:
         """Reset."""
         _LOGGER.debug("%s: reset", self.name)
+        self._capabilities = None
         self._notification_handlers.notify(prot.State.DISCONNECTED)
         self._notification_handlers.reset()
         for fut in self._response_handlers.values():

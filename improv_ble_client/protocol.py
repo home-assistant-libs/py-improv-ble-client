@@ -28,7 +28,11 @@ IMPROV_CHARACTERISTICS = (
 class Capabilities(IntFlag):
     """Capabilities."""
 
-    IDENTIFY = 1
+    IDENTIFY = 1 << 0
+    DEVICE_INFO = 1 << 1
+    SCAN_WIFI = 1 << 2
+    HOSTNAME = 1 << 3
+    ALL = IDENTIFY | DEVICE_INFO | SCAN_WIFI | HOSTNAME
 
 
 class State(IntEnum):
@@ -49,6 +53,7 @@ class Error(IntEnum):
     UNKNOWN_RPC_COMMAND = 2
     UNABLE_TO_CONNECT = 3
     NOT_AUTHORIZED = 4
+    BAD_HOSTNAME = 5
     UNKNOWN_ERROR = 0xFF
 
 
@@ -260,6 +265,210 @@ class IdentifyCmd(Command):
             raise InvalidCommand("Invalid strings", data.hex())
 
 
+class DeviceInfoCmd(Command):
+    """Device Info Command (v2.1)."""
+
+    cmd_id = 0x03
+
+    def __init__(self) -> None:
+        """Initialize."""
+        super().__init__([])
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}"
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> DeviceInfoCmd:
+        """Initialize from serialized representation of the command."""
+        cls._validate(data)
+        return cls()
+
+    @classmethod
+    def _validate(cls, data: bytes) -> None:
+        """Raise if the data is not valid."""
+        super()._validate(data)
+        if len(cls._extract_strings(data)) != 0:
+            raise InvalidCommand("Invalid strings", data.hex())
+
+
+class DeviceInfoRes(Command):
+    """Device Info Response (v2.1)."""
+
+    cmd_id = 0x03
+
+    firmware_name: bytes
+    firmware_version: bytes
+    hardware_chip: bytes
+    device_name: bytes
+
+    def __init__(
+        self,
+        firmware_name: bytes,
+        firmware_version: bytes,
+        hardware_chip: bytes,
+        device_name: bytes,
+    ) -> None:
+        """Initialize."""
+        super().__init__([firmware_name, firmware_version, hardware_chip, device_name])
+        self.firmware_name = firmware_name
+        self.firmware_version = firmware_version
+        self.hardware_chip = hardware_chip
+        self.device_name = device_name
+
+    def __str__(self) -> str:
+        return (
+            f"{self.__class__.__name__} firmware:{self.firmware_name.decode()}, "
+            f"version:{self.firmware_version.decode()}, "
+            f"chip:{self.hardware_chip.decode()}, "
+            f"name:{self.device_name.decode()}"
+        )
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> DeviceInfoRes:
+        """Initialize from serialized representation of the command."""
+        cls._validate(data)
+        strings = cls._extract_strings(data)
+        return cls(strings[0], strings[1], strings[2], strings[3])
+
+    @classmethod
+    def _validate(cls, data: bytes) -> None:
+        """Raise if the data is not valid."""
+        super()._validate(data)
+        if len(cls._extract_strings(data)) != 4:
+            raise InvalidCommand("Invalid strings", data.hex())
+
+
+class ScanWifiCmd(Command):
+    """Scan WiFi Command (v2.2)."""
+
+    cmd_id = 0x04
+
+    def __init__(self) -> None:
+        """Initialize."""
+        super().__init__([])
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}"
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> ScanWifiCmd:
+        """Initialize from serialized representation of the command."""
+        cls._validate(data)
+        return cls()
+
+    @classmethod
+    def _validate(cls, data: bytes) -> None:
+        """Raise if the data is not valid."""
+        super()._validate(data)
+        if len(cls._extract_strings(data)) != 0:
+            raise InvalidCommand("Invalid strings", data.hex())
+
+
+class ScanWifiRes(Command):
+    """Scan WiFi Response (v2.2)."""
+
+    cmd_id = 0x04
+
+    networks: list[tuple[bytes, bytes, bytes]]  # [name, rssi, auth_type]
+
+    def __init__(self, networks: list[tuple[bytes, bytes, bytes]]) -> None:
+        """Initialize with list of (ssid, rssi, auth_type) tuples."""
+        strings = []
+        for ssid, rssi, auth_type in networks:
+            strings.extend([ssid, rssi, auth_type])
+        super().__init__(strings)
+        self.networks = networks
+
+    def __str__(self) -> str:
+        networks_str = ", ".join(
+            f"({ssid.decode()}, {rssi.decode()}, {auth.decode()})"
+            for ssid, rssi, auth in self.networks
+        )
+        return f"{self.__class__.__name__} networks:[{networks_str}]"
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> ScanWifiRes:
+        """Initialize from serialized representation of the command."""
+        cls._validate(data)
+        strings = cls._extract_strings(data)
+        networks = []
+        for i in range(0, len(strings), 3):
+            networks.append((strings[i], strings[i + 1], strings[i + 2]))
+        return cls(networks)
+
+    @classmethod
+    def _validate(cls, data: bytes) -> None:
+        """Raise if the data is not valid."""
+        super()._validate(data)
+        strings = cls._extract_strings(data)
+        if len(strings) % 3 != 0:
+            raise InvalidCommand("Invalid strings count for networks", data.hex())
+
+
+class HostnameCmd(Command):
+    """Hostname Command (v2.3)."""
+
+    cmd_id = 0x05
+
+    hostname: bytes | None
+
+    def __init__(self, hostname: bytes | None = None) -> None:
+        """Initialize. If hostname is None, gets current hostname. Else set hostname."""
+        super().__init__([hostname] if hostname is not None else [])
+        self.hostname = hostname
+
+    def __str__(self) -> str:
+        if self.hostname is None:
+            return f"{self.__class__.__name__} (get)"
+        return f"{self.__class__.__name__} hostname:{self.hostname.decode()}"
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> HostnameCmd:
+        """Initialize from serialized representation of the command."""
+        cls._validate(data)
+        strings = cls._extract_strings(data)
+        hostname = strings[0] if strings else None
+        return cls(hostname)
+
+    @classmethod
+    def _validate(cls, data: bytes) -> None:
+        """Raise if the data is not valid."""
+        super()._validate(data)
+        strings = cls._extract_strings(data)
+        if len(strings) > 1:
+            raise InvalidCommand("Invalid strings", data.hex())
+
+
+class HostnameRes(Command):
+    """Hostname Response (v2.3)."""
+
+    cmd_id = 0x05
+
+    hostname: bytes
+
+    def __init__(self, hostname: bytes) -> None:
+        """Initialize."""
+        super().__init__([hostname])
+        self.hostname = hostname
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__} hostname:{self.hostname.decode()}"
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> HostnameRes:
+        """Initialize from serialized representation of the command."""
+        cls._validate(data)
+        strings = cls._extract_strings(data)
+        return cls(strings[0])
+
+    @classmethod
+    def _validate(cls, data: bytes) -> None:
+        """Raise if the data is not valid."""
+        super()._validate(data)
+        if len(cls._extract_strings(data)) != 1:
+            raise InvalidCommand("Invalid strings", data.hex())
+
+
 class ImprovServiceData:
     """Service data."""
 
@@ -283,6 +492,9 @@ class ImprovServiceData:
 
 RESULT_TYPES: dict[int, type[Command]] = {
     0x01: WiFiSettingsRes,
+    0x03: DeviceInfoRes,
+    0x04: ScanWifiRes,
+    0x05: HostnameRes,
 }
 
 
