@@ -367,7 +367,7 @@ class ImprovBLEClient:
             )
         async with self._procedure_lock:
             try:
-                await self._ensure_connected()
+                await self.ensure_connected()
                 return await procedure()
             except asyncio.CancelledError as err:
                 if self._disconnect_reason is None:
@@ -381,7 +381,7 @@ class ImprovBLEClient:
                 self._disconnect(DisconnectReason.ERROR)
                 raise
 
-    async def _ensure_connected(self) -> None:
+    async def ensure_connected(self) -> None:
         """Ensure connection to device is established."""
         if self._connect_lock.locked():
             _LOGGER.debug(
