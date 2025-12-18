@@ -32,7 +32,8 @@ class Capabilities(IntFlag):
     DEVICE_INFO = 1 << 1
     SCAN_WIFI = 1 << 2
     HOSTNAME = 1 << 3
-    ALL = IDENTIFY | DEVICE_INFO | SCAN_WIFI | HOSTNAME
+    DEVICE_NAME = 1 << 4
+    ALL = IDENTIFY | DEVICE_INFO | SCAN_WIFI | HOSTNAME | DEVICE_NAME
 
 
 class State(IntEnum):
@@ -469,6 +470,70 @@ class HostnameRes(Command):
             raise InvalidCommand("Invalid strings", data.hex())
 
 
+class DeviceNameCmd(Command):
+    """Device Name Command (v2.4)."""
+
+    cmd_id = 0x06
+
+    device_name: bytes | None
+
+    def __init__(self, device_name: bytes | None = None) -> None:
+        """Initialize. If device_name is None, gets device_name. Else set device_name."""
+        super().__init__([device_name] if device_name is not None else [])
+        self.device_name = device_name
+
+    def __str__(self) -> str:
+        if self.device_name is None:
+            return f"{self.__class__.__name__} (get)"
+        return f"{self.__class__.__name__} device_name:{self.device_name.decode()}"
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> DeviceNameCmd:
+        """Initialize from serialized representation of the command."""
+        cls._validate(data)
+        strings = cls._extract_strings(data)
+        device_name = strings[0] if strings else None
+        return cls(device_name)
+
+    @classmethod
+    def _validate(cls, data: bytes) -> None:
+        """Raise if the data is not valid."""
+        super()._validate(data)
+        strings = cls._extract_strings(data)
+        if len(strings) > 1:
+            raise InvalidCommand("Invalid strings", data.hex())
+
+
+class DeviceNameRes(Command):
+    """Get Device Name Response (v2.4)."""
+
+    cmd_id = 0x06
+
+    device_name: bytes
+
+    def __init__(self, device_name: bytes) -> None:
+        """Initialize."""
+        super().__init__([device_name])
+        self.device_name = device_name
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__} device_name:{self.device_name.decode()}"
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> DeviceNameRes:
+        """Initialize from serialized representation of the command."""
+        cls._validate(data)
+        strings = cls._extract_strings(data)
+        return cls(strings[0])
+
+    @classmethod
+    def _validate(cls, data: bytes) -> None:
+        """Raise if the data is not valid."""
+        super()._validate(data)
+        if len(cls._extract_strings(data)) != 1:
+            raise InvalidCommand("Invalid strings", data.hex())
+
+
 class ImprovServiceData:
     """Service data."""
 
@@ -495,6 +560,7 @@ RESULT_TYPES: dict[int, type[Command]] = {
     0x03: DeviceInfoRes,
     0x04: ScanWifiRes,
     0x05: HostnameRes,
+    0x06: DeviceNameRes,
 }
 
 

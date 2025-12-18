@@ -271,6 +271,40 @@ class ImprovBLEClient:
         )
         return result.hostname.decode()
 
+    @property
+    def can_set_device_name(self) -> bool:
+        """Return if the device supports device name get/set (v2.4)."""
+        return bool(self.capabilities & prot.Capabilities.DEVICE_NAME)
+
+    async def get_device_name(self) -> str:
+        """Get the device name (v2.4).
+
+        Only available while the device is in an "Authorized" state.
+        """
+        _LOGGER.debug("%s: get_device_name", self.name)
+        if not self.can_set_device_name:
+            raise NotSupported
+
+        result = await self._execute_cmd_with_response(
+            prot.DeviceNameCmd(), prot.DeviceNameRes
+        )
+        return result.device_name.decode()
+
+    async def set_device_name(self, device_name: str) -> str:
+        """Set the device name (v2.4).
+
+        Only available while the device is in an "Authorized" state.
+        Returns the device name that was set.
+        """
+        _LOGGER.debug("%s: set_device_name: %s", self.name, device_name)
+        if not self.can_set_device_name:
+            raise NotSupported
+
+        result = await self._execute_cmd_with_response(
+            prot.DeviceNameCmd(device_name.encode()), prot.DeviceNameRes
+        )
+        return result.device_name.decode()
+
     async def need_authorization(self) -> bool:
         """Return if the device needs authorization."""
         _LOGGER.debug("%s: need_authorization", self.name)
