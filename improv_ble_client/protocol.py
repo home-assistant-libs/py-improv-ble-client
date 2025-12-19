@@ -478,7 +478,7 @@ class DeviceNameCmd(Command):
     device_name: bytes | None
 
     def __init__(self, device_name: bytes | None = None) -> None:
-        """Initialize. If device_name is None, gets device_name. Else set device_name."""
+        """Initialize. If device_name is None, gets device_name. Else set it."""
         super().__init__([device_name] if device_name is not None else [])
         self.device_name = device_name
 
