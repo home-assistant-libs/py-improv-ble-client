@@ -52,6 +52,13 @@ class ProvisioningFailed(CommandFailed):
         self.error = error
         super().__init__(error.name)
 
+class BadHostname(CommandFailed):
+    """Raised when setting hostname fails with the bad hostname error."""
+
+    def __init__(self, error: Error):
+        self.error = error
+        super().__init__(error.name)
+
 
 class Timeout(BleakError, ImprovError):
     """Raised when am operation times out."""
@@ -69,4 +76,5 @@ IMPROV_EXCEPTIONS = (
     Disconnected,
     InvalidCommand,
     ProvisioningFailed,
+    BadHostname,
 )

@@ -30,7 +30,7 @@ from .errors import (
     NotSupported,
     ProvisioningFailed,
     Timeout,
-    UnexpectedDisconnect,
+    UnexpectedDisconnect, BadHostname,
 )
 from .models import DisconnectReason
 from .protocol import (
@@ -265,6 +265,9 @@ class ImprovBLEClient:
         _LOGGER.debug("%s: set_hostname: %s", self.name, hostname)
         if not self.can_set_hostname:
             raise NotSupported
+
+        if len(hostname) > 255 or not all(c.isalnum() or c == '-' for c in hostname):
+            raise BadHostname(f"Invalid hostname: {hostname}")
 
         result = await self._execute_cmd_with_response(
             prot.HostnameCmd(hostname.encode()), prot.HostnameRes
