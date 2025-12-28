@@ -330,7 +330,7 @@ class DeviceInfoRes(Command):
             f"chip:{self.hardware_chip.decode()}, "
             f"name:{self.device_name.decode()}"
             f", os:{self.os_name.decode()}" if self.os_name is not None else ''
-            f", os_version:{self.os_version.decode()}," if self.os_version is not None else ''
+            f", os_version:{self.os_version.decode()}" if self.os_version is not None else ''
         )
 
     @classmethod
