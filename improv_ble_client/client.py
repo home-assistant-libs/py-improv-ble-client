@@ -243,10 +243,7 @@ class ImprovBLEClient:
         return bool(self.capabilities & prot.Capabilities.HOSTNAME)
 
     async def get_hostname(self) -> str:
-        """Get device hostname (v2.3).
-
-        Only available while device is in "Authorized" state.
-        """
+        """Get device hostname (v2.3)."""
         _LOGGER.debug("%s: get_hostname", self.name)
         if not self.can_set_hostname:
             raise NotSupported
@@ -281,10 +278,7 @@ class ImprovBLEClient:
         return bool(self.capabilities & prot.Capabilities.DEVICE_NAME)
 
     async def get_device_name(self) -> str:
-        """Get the device name (v2.4).
-
-        Only available while the device is in an "Authorized" state.
-        """
+        """Get the device name (v2.4)."""
         _LOGGER.debug("%s: get_device_name", self.name)
         if not self.can_set_device_name:
             raise NotSupported
