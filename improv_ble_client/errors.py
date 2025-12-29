@@ -52,6 +52,7 @@ class ProvisioningFailed(CommandFailed):
         self.error = error
         super().__init__(error.name)
 
+
 class BadHostname(CommandFailed):
     """Raised when setting hostname fails with the bad hostname error."""
 

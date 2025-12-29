@@ -314,8 +314,18 @@ class DeviceInfoRes(Command):
         os_version: bytes | None = None,
     ) -> None:
         """Initialize."""
-        super().__init__([firmware_name, firmware_version, hardware_chip, device_name] if os_name is None else
-                         [firmware_name, firmware_version, hardware_chip, device_name, os_name, os_version])
+        super().__init__(
+            [firmware_name, firmware_version, hardware_chip, device_name]
+            if os_name is None
+            else [
+                firmware_name,
+                firmware_version,
+                hardware_chip,
+                device_name,
+                os_name,
+                os_version,
+            ]
+        )
         self.firmware_name = firmware_name
         self.firmware_version = firmware_version
         self.hardware_chip = hardware_chip
@@ -329,8 +339,13 @@ class DeviceInfoRes(Command):
             f"version:{self.firmware_version.decode()}, "
             f"chip:{self.hardware_chip.decode()}, "
             f"name:{self.device_name.decode()}"
-            f", os:{self.os_name.decode()}" if self.os_name is not None else ''
-            f", os_version:{self.os_version.decode()}" if self.os_version is not None else ''
+            f", os:{self.os_name.decode()}"
+            if self.os_name is not None
+            else (
+                "" f", os_version:{self.os_version.decode()}"
+                if self.os_version is not None
+                else ""
+            )
         )
 
     @classmethod
@@ -338,9 +353,14 @@ class DeviceInfoRes(Command):
         """Initialize from serialized representation of the command."""
         cls._validate(data)
         strings = cls._extract_strings(data)
-        return cls(strings[0], strings[1], strings[2], strings[3],
-                   strings[4] if len(strings) > 4 else None,
-                   strings[5] if len(strings) > 5 else None)
+        return cls(
+            strings[0],
+            strings[1],
+            strings[2],
+            strings[3],
+            strings[4] if len(strings) > 4 else None,
+            strings[5] if len(strings) > 5 else None,
+        )
 
     @classmethod
     def _validate(cls, data: bytes) -> None:
