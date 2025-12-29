@@ -316,7 +316,7 @@ class DeviceInfoRes(Command):
         """Initialize."""
         super().__init__(
             [firmware_name, firmware_version, hardware_chip, device_name]
-            if os_name is None
+            if os_name is None or os_version is None
             else [
                 firmware_name,
                 firmware_version,

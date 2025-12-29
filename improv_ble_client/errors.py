@@ -54,11 +54,7 @@ class ProvisioningFailed(CommandFailed):
 
 
 class BadHostname(CommandFailed):
-    """Raised when setting hostname fails with the bad hostname error."""
-
-    def __init__(self, error: Error):
-        self.error = error
-        super().__init__(error.name)
+    """Raised when setting hostname fails."""
 
 
 class Timeout(BleakError, ImprovError):

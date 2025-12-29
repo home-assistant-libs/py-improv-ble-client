@@ -265,7 +265,7 @@ class ImprovBLEClient:
             raise NotSupported
 
         if len(hostname) > 255 or not all(c.isalnum() or c == "-" for c in hostname):
-            raise BadHostname(f"Invalid hostname: {hostname}")
+            raise BadHostname
 
         result = await self._execute_cmd_with_response(
             prot.HostnameCmd(hostname.encode()), prot.HostnameRes
