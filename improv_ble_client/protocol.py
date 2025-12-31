@@ -304,34 +304,34 @@ class DeviceInfoRes(Command):
     os_name: bytes | None
     os_version: bytes | None
 
+    # pylint: disable-next=too-many-positional-arguments
     def __init__(
         self,
         firmware_name: bytes,
         firmware_version: bytes,
         hardware_chip: bytes,
         device_name: bytes,
-        os_name: bytes | None = None,
-        os_version: bytes | None = None,
+        *kwargs,
     ) -> None:
         """Initialize."""
         super().__init__(
             [firmware_name, firmware_version, hardware_chip, device_name]
-            if os_name is None or os_version is None
+            if kwargs["os_name"] is None or kwargs["os_version"] is None
             else [
                 firmware_name,
                 firmware_version,
                 hardware_chip,
                 device_name,
-                os_name,
-                os_version,
+                kwargs["os_name"],
+                kwargs["os_version"],
             ]
         )
         self.firmware_name = firmware_name
         self.firmware_version = firmware_version
         self.hardware_chip = hardware_chip
         self.device_name = device_name
-        self.os_name = os_name
-        self.os_version = os_version
+        self.os_name = kwargs["os_name"]
+        self.os_version = kwargs["os_version"]
 
     def __str__(self) -> str:
         return (
