@@ -311,27 +311,28 @@ class DeviceInfoRes(Command):
         firmware_version: bytes,
         hardware_chip: bytes,
         device_name: bytes,
-        *kwargs,
+        *args,
+        **kwargs,
     ) -> None:
         """Initialize."""
         super().__init__(
             [firmware_name, firmware_version, hardware_chip, device_name]
-            if kwargs["os_name"] is None or kwargs["os_version"] is None
+            if len(args) == 0 and (kwargs["os_name"] is None or kwargs["os_version"] is None)
             else [
                 firmware_name,
                 firmware_version,
                 hardware_chip,
                 device_name,
-                kwargs["os_name"],
-                kwargs["os_version"],
+                args[0] if len(args) > 0 else kwargs["os_name"],
+                args[1] if len(args) > 1 else kwargs["os_version"],
             ]
         )
         self.firmware_name = firmware_name
         self.firmware_version = firmware_version
         self.hardware_chip = hardware_chip
         self.device_name = device_name
-        self.os_name = kwargs["os_name"]
-        self.os_version = kwargs["os_version"]
+        self.os_name = args[0] if len(args) > 0 else kwargs["os_name"]
+        self.os_version = args[1] if len(args) > 1 else kwargs["os_version"]
 
     def __str__(self) -> str:
         return (
