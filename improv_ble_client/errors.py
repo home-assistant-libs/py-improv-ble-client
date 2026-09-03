@@ -28,7 +28,8 @@ class CommandFailed(ImprovError):
 class Disconnected(ImprovError):
     """Raised when the connection is lost."""
 
-    def __init__(self, reason: DisconnectReason):
+    def __init__(self, reason: DisconnectReason) -> None:
+        """Initialize."""
         self.reason = reason
         super().__init__(reason.name)
 
@@ -48,7 +49,8 @@ class NotSupported(ImprovError):
 class ProvisioningFailed(CommandFailed):
     """Raised when provisioning fails."""
 
-    def __init__(self, error: Error):
+    def __init__(self, error: Error) -> None:
+        """Initialize."""
         self.error = error
         super().__init__(error.name)
 
@@ -60,7 +62,8 @@ class Timeout(BleakError, ImprovError):
 class UnexpectedDisconnect(Disconnected, BleakError):
     """Raised when the connection is unexpectedly lost."""
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Initialize."""
         super().__init__(DisconnectReason.UNEXPECTED)
 
 

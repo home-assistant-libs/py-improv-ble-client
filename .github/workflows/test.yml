@@ -24,18 +24,12 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install -r requirements-test.txt
-      - name: Check formatting with black
+      - name: Check formatting with ruff-format
         run: |
-          black improv_ble_client --check --diff
-      - name: Lint with flake8
+          ruff format improv_ble_client --check --diff
+      - name: Lint with ruff
         run: |
-          flake8 improv_ble_client
-      - name: Lint with isort
-        run: |
-          isort improv_ble_client
+          ruff check improv_ble_client
       - name: Lint with mypy
         run: |
           mypy improv_ble_client
-      - name: Lint with pylint
-        run: |
-          pylint improv_ble_client
