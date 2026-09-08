@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from enum import IntEnum, IntFlag
 import struct
+from enum import IntEnum, IntFlag
 from typing import Final, TypeVar
 
 from .errors import InvalidCommand
@@ -158,12 +158,13 @@ _CMD_T = TypeVar("_CMD_T", bound=Command)
 class UnknownCommand(Command):
     """Unknown command."""
 
-    def __init__(self, cmd_id: int, strings: list[bytes]):
+    def __init__(self, cmd_id: int, strings: list[bytes]) -> None:
         """Initialize."""
         super().__init__(strings)
         self.cmd_id = cmd_id
 
     def __str__(self) -> str:
+        """Return a string representation."""
         return f"{self.__class__.__name__} data: {self.as_bytes().hex()}"
 
     @classmethod
@@ -185,6 +186,7 @@ class WiFiSettingsCmd(Command):
         self.password = password
 
     def __str__(self) -> str:
+        """Return a string representation."""
         return (
             f"{self.__class__.__name__} ssid:{self.ssid.hex()}, password:"
             f"{self.password.hex()}"
@@ -221,6 +223,7 @@ class WiFiSettingsRes(Command):
         self.redirect_url = redirect_url
 
     def __str__(self) -> str:
+        """Return a string representation."""
         url: str | None = None
         if self.redirect_url is not None:
             url = self.redirect_url.decode()
@@ -249,6 +252,7 @@ class IdentifyCmd(Command):
         super().__init__([])
 
     def __str__(self) -> str:
+        """Return a string representation."""
         return f"{self.__class__.__name__}"
 
     @classmethod
@@ -275,6 +279,7 @@ class DeviceInfoCmd(Command):
         super().__init__([])
 
     def __str__(self) -> str:
+        """Return a string representation."""
         return f"{self.__class__.__name__}"
 
     @classmethod
@@ -316,6 +321,7 @@ class DeviceInfoRes(Command):
         self.device_name = device_name
 
     def __str__(self) -> str:
+        """Return a string representation."""
         return (
             f"{self.__class__.__name__} firmware:{self.firmware_name.decode()}, "
             f"version:{self.firmware_version.decode()}, "
@@ -348,6 +354,7 @@ class ScanWifiCmd(Command):
         super().__init__([])
 
     def __str__(self) -> str:
+        """Return a string representation."""
         return f"{self.__class__.__name__}"
 
     @classmethod
@@ -380,6 +387,7 @@ class ScanWifiRes(Command):
         self.networks = networks
 
     def __str__(self) -> str:
+        """Return a string representation."""
         networks_str = ", ".join(
             f"({ssid.decode()}, {rssi.decode()}, {auth.decode()})"
             for ssid, rssi, auth in self.networks
@@ -418,6 +426,7 @@ class HostnameCmd(Command):
         self.hostname = hostname
 
     def __str__(self) -> str:
+        """Return a string representation."""
         if self.hostname is None:
             return f"{self.__class__.__name__} (get)"
         return f"{self.__class__.__name__} hostname:{self.hostname.decode()}"
@@ -452,6 +461,7 @@ class HostnameRes(Command):
         self.hostname = hostname
 
     def __str__(self) -> str:
+        """Return a string representation."""
         return f"{self.__class__.__name__} hostname:{self.hostname.decode()}"
 
     @classmethod
