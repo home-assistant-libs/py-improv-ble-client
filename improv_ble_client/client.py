@@ -31,6 +31,7 @@ from .errors import (
     ProvisioningFailed,
     Timeout,
     UnexpectedDisconnect,
+    BadHostname,
 )
 from .models import DisconnectReason
 from .protocol import (
@@ -242,10 +243,7 @@ class ImprovBLEClient:
         return bool(self.capabilities & prot.Capabilities.HOSTNAME)
 
     async def get_hostname(self) -> str:
-        """Get device hostname (v2.3).
-
-        Only available while device is in "Authorized" state.
-        """
+        """Get device hostname (v2.3)."""
         _LOGGER.debug("%s: get_hostname", self.name)
         if not self.can_set_hostname:
             raise NotSupported
@@ -266,10 +264,44 @@ class ImprovBLEClient:
         if not self.can_set_hostname:
             raise NotSupported
 
+        if len(hostname) > 255 or not all(c.isalnum() or c == "-" for c in hostname):
+            raise BadHostname
+
         result = await self._execute_cmd_with_response(
             prot.HostnameCmd(hostname.encode()), prot.HostnameRes
         )
         return result.hostname.decode()
+
+    @property
+    def can_set_device_name(self) -> bool:
+        """Return if the device supports device name get/set (v2.4)."""
+        return bool(self.capabilities & prot.Capabilities.DEVICE_NAME)
+
+    async def get_device_name(self) -> str:
+        """Get the device name (v2.4)."""
+        _LOGGER.debug("%s: get_device_name", self.name)
+        if not self.can_set_device_name:
+            raise NotSupported
+
+        result = await self._execute_cmd_with_response(
+            prot.DeviceNameCmd(), prot.DeviceNameRes
+        )
+        return result.device_name.decode()
+
+    async def set_device_name(self, device_name: str) -> str:
+        """Set the device name (v2.4).
+
+        Only available while the device is in an "Authorized" state.
+        Returns the device name that was set.
+        """
+        _LOGGER.debug("%s: set_device_name: %s", self.name, device_name)
+        if not self.can_set_device_name:
+            raise NotSupported
+
+        result = await self._execute_cmd_with_response(
+            prot.DeviceNameCmd(device_name.encode()), prot.DeviceNameRes
+        )
+        return result.device_name.decode()
 
     async def need_authorization(self) -> bool:
         """Return if the device needs authorization."""
