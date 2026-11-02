@@ -565,7 +565,7 @@ class ImprovBLEClient:
         self._cancel_disconnect_timer()
 
     def _validate_state(
-        self, characteristic_uuid: str, data: bytes
+        self, characteristic_uuid: str, data: bytes | bytearray
     ) -> IntEnum | IntFlag | None:
         if (
             len(data) != 1
@@ -581,7 +581,7 @@ class ImprovBLEClient:
         return cast(IntEnum | IntFlag | None, state)
 
     async def _notification_handler(
-        self, characteristic: BleakGATTCharacteristic, data: bytes
+        self, characteristic: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         self._reset_disconnect_timer()
         if (state := self._validate_state(characteristic.uuid, data)) is None:
@@ -591,12 +591,12 @@ class ImprovBLEClient:
         self._notification_handlers.notify(cast(prot.Error | prot.State, state))
 
     async def _rpc_result_handler(
-        self, characteristic: BleakGATTCharacteristic, data: bytes
+        self, characteristic: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Notification handler."""
         self._reset_disconnect_timer()
         try:
-            command = parse_result(data)
+            command = parse_result(bytes(data))
         except InvalidCommand as err:
             _LOGGER.warning("Received invalid command %s (%s)", err, data.hex())
             self._disconnect(DisconnectReason.INVALID_COMMAND)
