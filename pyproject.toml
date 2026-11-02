@@ -40,6 +40,8 @@ select = [
     "ANN",
     # isort
     "I",
+    # mccabe
+    "C90",
 ]
 ignore = [
     # Prefer no blank line before class docstrings.
