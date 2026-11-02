@@ -9,7 +9,7 @@ from typing import Any, TypeVar
 _EnumT = TypeVar("_EnumT", bound=Enum)
 
 
-def try_parse_enum(cls: type[_EnumT], value: Any) -> _EnumT | None:
+def try_parse_enum(cls: type[_EnumT], value: Any) -> _EnumT | None:  # noqa: ANN401
     """Try to parse the value into an Enum.
 
     Return None if parsing fails.

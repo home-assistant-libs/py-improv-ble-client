@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable, Coroutine
 from contextlib import suppress
 from enum import Enum, IntEnum, IntFlag
-import logging
 from typing import Any, TypeVar, cast
 
 from bleak import BleakClient
@@ -133,7 +133,7 @@ class ImprovBLEClient:
 
     def __init__(
         self, ble_device: BLEDevice, advertisement_data: AdvertisementData | None = None
-    ):
+    ) -> None:
         """Initialize."""
         self._advertisement_data = advertisement_data
         self._background_tasks: set[asyncio.Task] = set()
@@ -294,7 +294,7 @@ class ImprovBLEClient:
         _LOGGER.debug("%s: provision ssid: %s, pw: %s", self.name, ssid, password)
 
         async def _provision() -> str | None:
-            """Execute the procedure"""
+            """Execute the procedure."""
 
             def handle_error(value: prot.Error) -> None:
                 if value == prot.Error.NO_ERROR or error_fut.done():
@@ -468,7 +468,7 @@ class ImprovBLEClient:
             return
         raise NotConnected
 
-    def _cancel_disconnect_timer(self):
+    def _cancel_disconnect_timer(self) -> None:
         """Cancel disconnect timer."""
         if self._disconnect_timer:
             self._disconnect_timer.cancel()
